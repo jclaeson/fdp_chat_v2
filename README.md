@@ -44,14 +44,35 @@ The system intelligently routes queries between two AI backends:
 
 ## Getting Started
 
-### Prerequisites
+### Quick Start (Automated)
+
+**For local development:**
+```bash
+# One-command setup (interactive)
+./scripts/all-in-one.sh
+
+# Or step-by-step:
+./scripts/setup-local.sh       # Install dependencies
+./scripts/build-vector-db.sh   # Build RAG index (5-15 min)
+./scripts/test-vector-db.sh    # Validate system
+./scripts/start-dev.sh         # Start development
+```
+
+See [`QUICKSTART.md`](QUICKSTART.md) for detailed instructions.
+
+### Manual Setup
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
+#### Prerequisites
 
 - Node.js 20+
 - Python 3.9+
 - PostgreSQL (automatically configured on Replit)
 - Ollama (for local RAG inference)
 
-### Installation
+#### Installation
 
 1. **Install Node dependencies**
 ```bash
@@ -77,6 +98,8 @@ ollama pull nomic-embed-text
 ```bash
 npm run db:push
 ```
+
+</details>
 
 ### Running Locally
 

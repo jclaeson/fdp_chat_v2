@@ -118,3 +118,44 @@ The browser extension (`client/public/extension/`) overlays a chat interface dir
 - `AI_INTEGRATIONS_OPENAI_BASE_URL`: Optional OpenAI-compatible endpoint override
 - `PYTHON_BACKEND_URL`: FastAPI server URL (defaults to `http://localhost:8000`)
 - `PERSIST_DIR`: ChromaDB storage path (defaults to `./vector_store/chroma_fedex`)
+
+## Development Scripts
+
+Automated bash scripts in `scripts/` directory streamline local development workflow:
+
+### Setup & Installation
+- **`setup-local.sh`**: One-time environment setup
+  - Creates Python venv
+  - Installs Node.js and Python dependencies
+  - Pulls Ollama models (llama3, nomic-embed-text)
+  - Generates `.env` template
+
+### Vector Database Management
+- **`build-vector-db.sh`**: Scrape FedEx docs and build ChromaDB index
+  - Runs `backend_repo/apps/ingest/ingest.py`
+  - Creates embeddings with nomic-embed-text
+  - Outputs to `./vector_store/chroma_fedex/`
+  
+- **`test-vector-db.sh`**: Validate RAG system with sample queries
+  - Starts FastAPI backend temporarily
+  - Tests 3 FedEx-specific queries
+  - Verifies source citations
+
+- **`push-vector-db.sh`**: Deploy vector store to repo/cloud
+  - Option 1: Git commit (small datasets)
+  - Option 2: Git LFS (medium datasets)
+  - Option 3: Azure Blob Storage (production)
+  - Option 4: Skip (local only)
+
+### Development Workflow
+- **`start-dev.sh`**: Start all services (Python backend + Node.js frontend)
+  - Checks for Ollama and vector store
+  - Launches FastAPI on :8000
+  - Launches Vite+Express on :5000
+  - Saves logs to `logs/` directory
+
+- **`stop-dev.sh`**: Stop all running services cleanly
+
+- **`all-in-one.sh`**: Interactive setup wizard (runs all steps sequentially)
+
+See `scripts/README.md` and `QUICKSTART.md` for detailed usage.

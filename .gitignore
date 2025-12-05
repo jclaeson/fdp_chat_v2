@@ -1,6 +1,61 @@
-node_modules
-dist
-.DS_Store
+# Dependencies
+node_modules/
+venv/
+*.pyc
+__pycache__/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+*.pid
+
+# Build outputs
+dist/
+build/
+.vite/
 server/public
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Vector store (uncomment to exclude from git)
+# vector_store/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 vite.config.ts.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary
+tmp/
+temp/
+*.tmp
 *.tar.gz
+
+# Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Replit
+.replit
+replit.nix
