@@ -1,0 +1,19 @@
+.PHONY: setup ingest dev up down
+
+setup:
+\tpython3 -m venv .venv && . .venv/bin/activate && pip install -U pip
+\t. .venv/bin/activate && pip install -r apps/ingest/requirements.txt
+\t. .venv/bin/activate && pip install -r apps/backend/requirements.txt
+
+ingest:
+\t. .venv/bin/activate && python apps/ingest/ingest.py
+
+dev:
+\t# tmux layout: ollama | backend | test
+\tbash scripts/dev_up.sh
+
+up:
+\tdocker compose -f infra/docker-compose.yml up --build
+
+down:
+\tdocker compose -f infra/docker-compose.yml down

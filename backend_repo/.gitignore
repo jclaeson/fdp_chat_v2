@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local data
+vector_store/
+chroma_fedex/
+*.sqlite3
+
+# OS/editor junk
+.DS_Store
+
+# Real secrets
+.env
