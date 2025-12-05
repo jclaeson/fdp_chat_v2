@@ -1,8 +1,83 @@
 # Quick Start Guide
 
+Choose your environment:
+- **[Replit Setup](#replit-setup)** - Run directly on Replit (easiest, no local install)
+- **[Local Setup](#local-setup)** - Run on your machine (full control)
+
+---
+
+## Replit Setup
+
+Running on Replit? You're already 80% there! The database and OpenAI integration are pre-configured.
+
+### Step 1: Verify Database
+
+```bash
+# Check that database is provisioned
+echo $DATABASE_URL
+```
+
+If empty, the database will be auto-created. No manual setup needed!
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+### Step 3: Push Database Schema
+
+```bash
+npm run db:push
+```
+
+This creates all tables (conversations, messages, scraper_runs, system_settings).
+
+### Step 4: Start the App
+
+```bash
+npm run dev
+```
+
+The frontend will be available at your Replit URL on port 5000.
+
+### Step 5: Optional - Build Vector Database
+
+The app works without the vector database (uses OpenAI only). To enable RAG features:
+
+**On Replit (limited):**
+- ⚠️ Ollama doesn't run on Replit
+- You'll need to build the vector database locally (see Local Setup)
+- Then push it using `./scripts/push-vector-db.sh` (option 3: Azure Blob Storage)
+
+**Or keep it simple:**
+- Just use OpenAI for all queries (no RAG needed)
+- The hybrid routing will use GPT-4 for everything
+
+### Replit Environment Variables
+
+These are auto-configured:
+- ✅ `DATABASE_URL` - PostgreSQL connection (auto-provisioned)
+- ✅ `AI_INTEGRATIONS_OPENAI_API_KEY` - OpenAI key (from integration)
+
+Optional (for Python backend):
+- `PYTHON_BACKEND_URL` - If running Python FastAPI separately
+- `PERSIST_DIR` - Vector store path (if using RAG)
+
+### Quick Test
+
+Visit your Replit URL:
+- `/` - Landing page
+- `/chat` - Chat interface (OpenAI-powered)
+- `/dashboard` - System dashboard
+
+---
+
+## Local Setup
+
 Get your local development environment up and running in 5 steps.
 
-## Prerequisites
+### Prerequisites
 
 - **Python 3.9+**: `python3 --version`
 - **Node.js 20+**: `node --version`
