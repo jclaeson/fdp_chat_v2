@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "FedEx Developer Assistant",
+  "version": "2.0.0",
+  "description": "RAG-powered assistant overlay for the FedEx Developer Portal",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://developer.fedex.com/*",
+    "http://localhost:5000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://developer.fedex.com/*"],
+      "css": ["styles.css"],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "FedEx Assistant"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
