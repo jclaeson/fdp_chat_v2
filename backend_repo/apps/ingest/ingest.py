@@ -54,8 +54,22 @@ SKIP_EXT = re.compile(r"\.(png|jpg|jpeg|gif|svg|pdf|zip|css|js|ico|mp4|mp3|woff2
 
 STRIP_SELECTORS = [
         "header", "nav", "footer", "aside",
-        "script", "style", "noscript",
-        "[role='navigation']", ".breadcrumbs", ".cookie", ".banner", ".sidebar"
+        "script", "style", "noscript", "iframe", "svg",
+        "[role='navigation']", "[role='banner']", "[role='contentinfo']",
+        ".breadcrumbs", ".cookie", ".banner", ".sidebar",
+        ".menu", ".nav", ".navbar", ".navigation",
+        ".sign-up", ".signup", ".login", ".log-in", ".signin", ".sign-in",
+        ".modal", ".overlay", ".popup",
+        ".header", ".footer", ".topbar", ".top-bar",
+        "form[action*='login']", "form[action*='signup']",
+        "[class*='menu']", "[class*='Menu']",
+        "[class*='nav-']", "[class*='Nav-']",
+        "[class*='cookie']", "[class*='Cookie']",
+        "[class*='sign-up']", "[class*='SignUp']",
+        "[class*='login']", "[class*='Login']",
+        "[class*='modal']", "[class*='Modal']",
+        "[class*='dropdown']", "[class*='Dropdown']",
+        "[id*='menu']", "[id*='nav']", "[id*='login']", "[id*='signup']",
 ]
 
 # ---------- WHY THESE CHOICES ----------
@@ -131,14 +145,40 @@ def crawl_one_level(seeds: list[str]) -> list[str]:
                 time.sleep(0.4)  # be polite
         return sorted(seen)
 
+JUNK_PATTERNS = re.compile(
+        r"^("
+        r"true|false|null|undefined"
+        r"|sign\s*up|log\s*in|log\s*out|sign\s*in|sign\s*out"
+        r"|forgot\s*password.*"
+        r"|main\s*menu"
+        r"|menu"
+        r"|×|✕|close"
+        r"|get\s+access\s+to\s+fedex.*"
+        r"|united\s+states\s+engli.*"
+        r"|developer\s+portal\s*$"
+        r")$",
+        re.I
+)
+
+MIN_LINE_LENGTH = 3
+
 def strip_boilerplate(html: str) -> str:
         soup = BeautifulSoup(html, "lxml")
         for sel in STRIP_SELECTORS:
                 for el in soup.select(sel):
                         el.decompose()
         text = soup.get_text("\n", strip=True)
-        lines = [ln.strip() for ln in text.splitlines()]
-        return "\n".join([ln for ln in lines if ln])
+        lines = []
+        for ln in text.splitlines():
+                ln = ln.strip()
+                if not ln:
+                        continue
+                if len(ln) < MIN_LINE_LENGTH:
+                        continue
+                if JUNK_PATTERNS.match(ln):
+                        continue
+                lines.append(ln)
+        return "\n".join(lines)
 
 def load_docs_one_level(seeds: list[str]):
         urls = crawl_one_level(seeds)
