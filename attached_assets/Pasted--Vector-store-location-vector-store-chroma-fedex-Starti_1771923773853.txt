@@ -1,0 +1,526 @@
+📁 Vector store location: ./vector_store/chroma_fedex
+
+🕷️  Starting web scraper...
+This may take 5-15 minutes depending on the site size.
+
+/Users/jeremyclaeson/llm/fdp_chatbot_fresh/scripts/venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+USER_AGENT environment variable not set, consider setting it to identify your requests.
+Crawling & loading docs (one level deep)...
+[WARN] Fetch failed: https://developer.fedex.com/api/en-us/guides/authentication.html -> 404 Client Error: Not Found for url: https://developer.fedex.com/api/en-us/guides/authentication.html
+[crawl] total URLs (seeds + 1-hop): 20
+Loaded 20 pages
+Chunking...
+Created 380 chunks
+Building vector store (this can take a minute on first run)...
+/Users/jeremyclaeson/llm/fdp_chatbot_fresh/backend_repo/apps/ingest/ingest.py:179: LangChainDeprecationWarning: The class `Chroma` was deprecated in LangChain 0.2.9 and will be removed in 1.0. An updated version of the class exists in the :class:`~langchain-chroma package and should be used instead. To use it run `pip install -U :class:`~langchain-chroma` and import as `from :class:`~langchain_chroma import Chroma``.
+  db = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+/Users/jeremyclaeson/llm/fdp_chatbot_fresh/backend_repo/apps/ingest/ingest.py:181: LangChainDeprecationWarning: Since Chroma 0.4.x the manual persistence method is no longer supported as docs are automatically persisted.
+  db.persist()
+Persisted to ./vector_store/chroma_fedex
+
+=== Sanity check results for: How do I get an OAuth token? ===
+
+[1] source: https://developer.fedex.com/api/en-us/Api-recipes/us-domestic-e-commerce.html
+US Domestic e-Commerce | FedEx Developer Portal
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+true
+
+
+
+
+
+
+
+ 
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Sign Up or Log In 
+
+
+
+
+
+ Sign Up or Log In 
+
+
+
+MAIN MENU 
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+LOG IN
+
+
+
+
+FORGOT PASSWORD OR USER ID?
+
+
+
+
+Get access to FedEx APIs by creating a user ID. 
+
+
+
+SIGN UP
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Menu
+
+
+Developer Portal 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Home
+
+
+
+
+
+
+
+
+
+
+United States Engli...
+
+[2] source: https://developer.fedex.com/api/en-us/Api-recipes/us-domestic-e-commerce.html
+US Domestic e-Commerce | FedEx Developer Portal
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+true
+
+
+
+
+
+
+
+ 
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Sign Up or Log In 
+
+
+
+
+
+ Sign Up or Log In 
+
+
+
+MAIN MENU 
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+LOG IN
+
+
+
+
+FORGOT PASSWORD OR USER ID?
+
+
+
+
+Get access to FedEx APIs by creating a user ID. 
+
+
+
+SIGN UP
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Menu
+
+
+Developer Portal 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Home
+
+
+
+
+
+
+
+
+
+
+United States Engli...
+
+[3] source: https://developer.fedex.com/api/en-us/catalog/rate.html
+Rates and Transit Times API | FedEx Developer Portal
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Sign Up or Log In 
+
+
+
+
+
+ Sign Up or Log In 
+
+
+
+MAIN MENU 
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+LOG IN
+
+
+
+
+FORGOT PASSWORD OR USER ID?
+
+
+
+
+Get access to FedEx APIs by creating a user ID. 
+
+
+
+SIGN UP
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Menu
+
+
+Developer Portal 
+
+
+
+
+
+
+API Catalog
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Home
+
+
+
+
+Cata...
+
+
+✅ Vector database built successfully!
+
+📊 Vector store location: ./vector_store/chroma_fedex
