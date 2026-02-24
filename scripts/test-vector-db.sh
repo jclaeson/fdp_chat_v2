@@ -14,9 +14,26 @@ fi
 # Set environment variables
 export PERSIST_DIR="${PERSIST_DIR:-./vector_store/chroma_fedex}"
 
-# Check if vector store exists
-if [ ! -d "$PERSIST_DIR" ] || [ ! "$(ls -A $PERSIST_DIR)" ]; then
-    echo "❌ Vector store not found at $PERSIST_DIR"
+# Check if vector store exists (ChromaDB creates chroma.sqlite3 or subdirectories)
+if [ ! -d "$PERSIST_DIR" ]; then
+    echo "❌ Vector store directory not found at $PERSIST_DIR"
+    echo "Run ./scripts/build-vector-db.sh first"
+    exit 1
+fi
+
+HAS_DB_FILES=false
+if [ -f "$PERSIST_DIR/chroma.sqlite3" ] || [ -d "$PERSIST_DIR/chroma.sqlite3" ]; then
+    HAS_DB_FILES=true
+fi
+if ls "$PERSIST_DIR"/*/ 1>/dev/null 2>&1; then
+    HAS_DB_FILES=true
+fi
+if [ "$(find "$PERSIST_DIR" -type f 2>/dev/null | head -1)" ]; then
+    HAS_DB_FILES=true
+fi
+
+if [ "$HAS_DB_FILES" = false ]; then
+    echo "❌ Vector store directory is empty at $PERSIST_DIR"
     echo "Run ./scripts/build-vector-db.sh first"
     exit 1
 fi
