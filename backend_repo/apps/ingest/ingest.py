@@ -2,6 +2,7 @@
 import os
 import re
 import time
+from typing import Optional
 from datetime import datetime
 from urllib.parse import urljoin, urldefrag, urlparse
 from urllib import robotparser
@@ -179,7 +180,7 @@ def strip_boilerplate(html: str) -> str:
                 lines.append(ln)
         return "\n".join(lines)
 
-def fetch_and_clean(url: str) -> str | None:
+def fetch_and_clean(url: str) -> Optional[str]:
         headers = {"User-Agent": USER_AGENT}
         try:
                 r = requests.get(url, headers=headers, timeout=20)
