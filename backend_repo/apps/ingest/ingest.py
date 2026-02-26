@@ -9,18 +9,14 @@ from urllib import robotparser
 import requests
 from bs4 import BeautifulSoup
 
-# Loaders, splitters, vector store, embeddings
-from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaEmbeddings
+from langchain_core.documents import Document
 
-# ---------- CONFIG ----------
-#PERSIST_DIR = "./chroma_fedex" # where the vector DB will live on disk
 PERSIST_DIR = os.getenv("PERSIST_DIR", "./vector_store/chroma_fedex")
-EMBED_MODEL = "nomic-embed-text"  # pulled via `ollama pull nomic-embed-text`
+EMBED_MODEL = "nomic-embed-text"
 
-# Seed pages (you can grow this list)
 DOC_URLS = [
         "https://developer.fedex.com/api/en-us/home.html",
         "https://developer.fedex.com/api/en-us/catalog.html",
@@ -44,12 +40,11 @@ DOC_URLS = [
         "https://developer.fedex.com/api/en-us/certification.html",
         "https://developer.fedex.com/api/en-us/support.html",
         "https://developer.fedex.com/api/en-us/guides.html"
-        
 ]
 
 USER_AGENT = "Mozilla/5.0 (FedEx RAG dev; macOS)"
-MAX_PAGES = 1000        # safety cap for (seeds + one-hop)
-PATH_MUST_CONTAIN = "/*/en-us/"  # keep dev docs; adjust if needed
+MAX_PAGES = 1000
+PATH_MUST_CONTAIN = "/*/en-us/"
 SKIP_EXT = re.compile(r"\.(png|jpg|jpeg|gif|svg|pdf|zip|css|js|ico|mp4|mp3|woff2?)$", re.I)
 
 STRIP_SELECTORS = [
@@ -72,13 +67,37 @@ STRIP_SELECTORS = [
         "[id*='menu']", "[id*='nav']", "[id*='login']", "[id*='signup']",
 ]
 
-# ---------- WHY THESE CHOICES ----------
-# - Custom 1-level crawler: full control of domain/path filters & robots
-# - WebBaseLoader: fetch & hand HTML to our cleaner
-# - Boilerplate strip: reduce noise before chunking
-# - RecursiveCharacterTextSplitter: overlapping chunks for better retrieval
-# - Chroma: local vector DB persisted on disk
-# - OllamaEmbeddings: local embedding model via Ollama
+JUNK_PATTERNS = re.compile(
+        r"^("
+        r"true|false|null|undefined"
+        r"|sign\s*up|log\s*in|log\s*out|sign\s*in|sign\s*out"
+        r"|sign\s*up\s+or\s+log\s*in"
+        r"|forgot\s*password.*"
+        r"|main\s*menu"
+        r"|menu"
+        r"|×|✕|close"
+        r"|home"
+        r"|get\s+access\s+to\s+fedex.*"
+        r"|united\s+states\s+engli.*"
+        r"|developer\s+portal\s*$"
+        r"|skip\s+to\s+.*"
+        r"|back\s+to\s+top"
+        r"|toggle\s+.*"
+        r"|expand\s+all|collapse\s+all"
+        r"|loading\.{0,3}"
+        r"|please\s+wait.*"
+        r"|copyright\s*©.*"
+        r"|all\s+rights\s+reserved.*"
+        r"|terms\s+(of\s+use|&\s+conditions).*"
+        r"|privacy\s+(policy|notice).*"
+        r"|cookie\s+(policy|preferences).*"
+        r")$",
+        re.I
+)
+
+MIN_LINE_LENGTH = 3
+MIN_DOC_LENGTH = 100
+
 
 def clean_url(u: str) -> str:
         u, _ = urldefrag(u or "")
@@ -96,11 +115,9 @@ def allowed_by_robots(url: str, ua: str = USER_AGENT) -> bool:
                 rp.read()
                 return rp.can_fetch(ua, url)
         except Exception:
-                # If robots.txt can't be fetched, be permissive for seeds; you'll still filter by domain/path.
                 return True
 
 def get_one_hop_links(seed: str) -> set[str]:
-        """Return unique same-site links (one hop) from the seed page."""
         links: set[str] = set()
         root = urlparse(seed)
         headers = {"User-Agent": USER_AGENT}
@@ -121,7 +138,6 @@ def get_one_hop_links(seed: str) -> set[str]:
                         continue
                 if not same_site(abs_url, root.netloc):
                         continue
-                # optional path guard to stay in API docs
                 if PATH_MUST_CONTAIN and PATH_MUST_CONTAIN not in urlparse(abs_url).path:
                         continue
                 links.add(abs_url)
@@ -142,25 +158,8 @@ def crawl_one_level(seeds: list[str]) -> list[str]:
                                 break
                         if allowed_by_robots(u):
                                 seen.add(u)
-                time.sleep(0.4)  # be polite
+                time.sleep(0.4)
         return sorted(seen)
-
-JUNK_PATTERNS = re.compile(
-        r"^("
-        r"true|false|null|undefined"
-        r"|sign\s*up|log\s*in|log\s*out|sign\s*in|sign\s*out"
-        r"|forgot\s*password.*"
-        r"|main\s*menu"
-        r"|menu"
-        r"|×|✕|close"
-        r"|get\s+access\s+to\s+fedex.*"
-        r"|united\s+states\s+engli.*"
-        r"|developer\s+portal\s*$"
-        r")$",
-        re.I
-)
-
-MIN_LINE_LENGTH = 3
 
 def strip_boilerplate(html: str) -> str:
         soup = BeautifulSoup(html, "lxml")
@@ -180,25 +179,38 @@ def strip_boilerplate(html: str) -> str:
                 lines.append(ln)
         return "\n".join(lines)
 
+def fetch_and_clean(url: str) -> str | None:
+        headers = {"User-Agent": USER_AGENT}
+        try:
+                r = requests.get(url, headers=headers, timeout=20)
+                r.raise_for_status()
+        except Exception as e:
+                print(f"[WARN] Fetch failed: {url} -> {e}")
+                return None
+        return strip_boilerplate(r.text)
+
 def load_docs_one_level(seeds: list[str]):
         urls = crawl_one_level(seeds)
         print(f"[crawl] total URLs (seeds + 1-hop): {len(urls)}")
 
-        loader = WebBaseLoader(
-                urls,
-                header_template={"User-Agent": USER_AGENT},
-        )
-        raw_docs = loader.load()
-
-        # Clean page_content and attach metadata
         ts = datetime.utcnow().isoformat()
-        for d in raw_docs:
-                html = d.page_content or ""
-                if "<html" in html.lower():
-                        d.page_content = strip_boilerplate(html)
-                d.metadata.setdefault("source", d.metadata.get("source", d.metadata.get("url", "")))
-                d.metadata["ingested_at"] = ts
-        return raw_docs
+        docs = []
+        for i, url in enumerate(urls):
+                print(f"[fetch {i+1}/{len(urls)}] {url}")
+                cleaned = fetch_and_clean(url)
+                if not cleaned or len(cleaned) < MIN_DOC_LENGTH:
+                        print(f"  -> skipped (too short or empty)")
+                        continue
+                doc = Document(
+                        page_content=cleaned,
+                        metadata={
+                                "source": url,
+                                "ingested_at": ts,
+                        }
+                )
+                docs.append(doc)
+                time.sleep(0.3)
+        return docs
 
 def clean_and_chunk(docs, chunk_size=1200, chunk_overlap=200):
         splitter = RecursiveCharacterTextSplitter(
@@ -209,8 +221,6 @@ def clean_and_chunk(docs, chunk_size=1200, chunk_overlap=200):
         return splitter.split_documents(docs)
 
 def build_embeddings():
-        # Ensure `ollama serve` is running and you've pulled the model:
-        #       ollama pull nomic-embed-text
         return OllamaEmbeddings(model=EMBED_MODEL)
 
 def build_or_update_vectorstore(chunks, persist_dir=PERSIST_DIR):
