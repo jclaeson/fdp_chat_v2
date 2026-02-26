@@ -11,8 +11,13 @@ if [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
-# Set environment variables
-export PERSIST_DIR="${PERSIST_DIR:-./vector_store/chroma_fedex}"
+# Set environment variables (resolve to absolute path before any cd)
+PROJECT_ROOT="$(pwd)"
+export PERSIST_DIR="${PERSIST_DIR:-${PROJECT_ROOT}/vector_store/chroma_fedex}"
+case "$PERSIST_DIR" in
+    /*) ;; # already absolute
+    *) PERSIST_DIR="${PROJECT_ROOT}/${PERSIST_DIR}" ;;
+esac
 
 echo ""
 echo "📁 Vector store location: $PERSIST_DIR"
