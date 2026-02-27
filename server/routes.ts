@@ -113,9 +113,40 @@ export async function registerRoutes(
         conversationId: convId,
         modelUsed,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
-      res.status(500).json({ error: "Internal server error" });
+
+      let errorMessage = "Something went wrong. Please try again.";
+      let errorType = "unknown";
+      let statusCode = 500;
+
+      if (error?.code === 'insufficient_quota' || error?.error?.code === 'insufficient_quota') {
+        errorMessage = "The OpenAI API quota has been exceeded. Try asking a FedEx-specific question instead, which uses the local AI.";
+        errorType = "quota_exceeded";
+        statusCode = 503;
+      } else if (error?.code === 'ECONNREFUSED' || error?.cause?.code === 'ECONNREFUSED') {
+        errorMessage = "Unable to connect to the AI backend. Please make sure all services are running.";
+        errorType = "rag_unavailable";
+        statusCode = 503;
+      } else if (error?.code === 'ETIMEDOUT' || error?.code === 'ECONNABORTED') {
+        errorMessage = "The request timed out. The AI service may be overloaded — please try again in a moment.";
+        errorType = "timeout";
+        statusCode = 504;
+      } else if (error?.status === 401 || error?.error?.code === 'invalid_api_key') {
+        errorMessage = "The OpenAI API key is invalid or missing. Please check your configuration.";
+        errorType = "auth_error";
+        statusCode = 401;
+      } else if (error?.status === 429 || error?.error?.type === 'rate_limit_exceeded') {
+        errorMessage = "Too many requests. Please wait a moment before sending another message.";
+        errorType = "rate_limited";
+        statusCode = 429;
+      } else if (error?.routine === 'parserOpenTable' || error?.code === '42P01') {
+        errorMessage = "Database tables have not been set up yet. Run 'npm run db:push' to create them.";
+        errorType = "database_error";
+        statusCode = 500;
+      }
+
+      res.status(statusCode).json({ error: errorMessage, errorType });
     }
   });
 

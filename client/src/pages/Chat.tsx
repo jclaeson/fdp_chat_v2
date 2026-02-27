@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Send, Bot, User, RefreshCw, ThumbsUp, ThumbsDown, MoreHorizontal, Sparkles } from "lucide-react";
+import { Send, Bot, User, RefreshCw, ThumbsUp, ThumbsDown, MoreHorizontal, Sparkles, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { chatAPI } from "@/lib/api";
@@ -12,11 +12,12 @@ import { toast } from "sonner";
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'error';
   content: string;
   timestamp: Date;
   sources?: string[];
   modelUsed?: string;
+  errorType?: string;
 }
 
 export default function Chat() {
@@ -45,8 +46,21 @@ export default function Chat() {
         }
       ]);
     },
-    onError: (error) => {
-      toast.error("Failed to send message. Please try again.");
+    onError: (error: any) => {
+      const responseData = error?.response?.data;
+      const errorMessage = responseData?.error || "Something went wrong. Please try again.";
+      const errorType = responseData?.errorType || "unknown";
+
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'error',
+          content: errorMessage,
+          timestamp: new Date(),
+          errorType,
+        }
+      ]);
       console.error('Chat error:', error);
     }
   });
@@ -161,12 +175,22 @@ export default function Chat() {
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex gap-3 md:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'assistant' ? 'bg-primary text-white' : 'bg-muted text-foreground'}`}>
-                  {msg.role === 'assistant' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  msg.role === 'assistant' ? 'bg-primary text-white' : 
+                  msg.role === 'error' ? 'bg-destructive text-white' : 
+                  'bg-muted text-foreground'
+                }`}>
+                  {msg.role === 'assistant' ? <Bot className="w-5 h-5" /> : 
+                   msg.role === 'error' ? <AlertTriangle className="w-5 h-5" /> :
+                   <User className="w-5 h-5" />}
                 </div>
                 <div className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  <div className={`p-3 md:p-4 rounded-2xl ${msg.role === 'assistant' ? 'bg-white/5 border border-white/5' : 'bg-primary text-white'}`}>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                  <div className={`p-3 md:p-4 rounded-2xl ${
+                    msg.role === 'assistant' ? 'bg-white/5 border border-white/5' : 
+                    msg.role === 'error' ? 'bg-destructive/10 border border-destructive/20' :
+                    'bg-primary text-white'
+                  }`}>
+                    <p className={`whitespace-pre-wrap text-sm leading-relaxed ${msg.role === 'error' ? 'text-destructive' : ''}`}>{msg.content}</p>
                   </div>
                   {msg.role === 'assistant' && (
                     <div className="flex flex-col gap-2 mt-2 ml-1">
