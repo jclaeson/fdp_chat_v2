@@ -6,6 +6,14 @@ set -e
 echo "🚀 Starting FedEx Developer Portal Assistant"
 echo "============================================"
 
+# Load .env file if present (for local development)
+if [ -f ".env" ]; then
+    set -a
+    source .env
+    set +a
+    echo "✅ Loaded .env file"
+fi
+
 # Activate virtual environment if it exists
 if [ -d "venv" ]; then
     source venv/bin/activate
