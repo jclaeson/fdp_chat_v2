@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { spawn } from "child_process";
 import path from "path";
 import axios from "axios";
+import { log } from "./index";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -14,14 +15,20 @@ const openai = new OpenAI({
 
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || "http://localhost:8000";
 
-// Intelligent router: decides between OpenAI (general) and RAG (FedEx-specific)
+const RAG_KEYWORDS = [
+  'fedex', 'api', 'shipment', 'tracking', 'label', 'rate', 'oauth',
+  'endpoint', 'shipping', 'address validation', 'webhook', 'authentication'
+];
+
 function shouldUseRAG(message: string): boolean {
-  const ragKeywords = [
-    'fedex', 'api', 'shipment', 'tracking', 'label', 'rate', 'oauth',
-    'endpoint', 'shipping', 'address validation', 'webhook', 'authentication'
-  ];
   const lowerMessage = message.toLowerCase();
-  return ragKeywords.some(keyword => lowerMessage.includes(keyword));
+  const matched = RAG_KEYWORDS.filter(keyword => lowerMessage.includes(keyword));
+  if (matched.length > 0) {
+    log(`[router] RAG path — matched keywords: ${matched.join(', ')}`, 'chat');
+  } else {
+    log(`[router] OpenAI path — no RAG keywords found`, 'chat');
+  }
+  return matched.length > 0;
 }
 
 export async function registerRoutes(
@@ -45,7 +52,7 @@ export async function registerRoutes(
       let modelUsed: string;
 
       if (useRAG) {
-        // Use Python FastAPI backend for RAG
+        log(`[rag] Sending to Python backend at ${PYTHON_BACKEND_URL}/chat`, 'chat');
         try {
           const response = await axios.post(`${PYTHON_BACKEND_URL}/chat`, {
             message,
@@ -56,22 +63,20 @@ export async function registerRoutes(
           answer = response.data.answer;
           sources = response.data.sources || [];
           modelUsed = 'ollama-rag';
-        } catch (error) {
-          console.error('RAG backend error:', error);
-          // Fallback to OpenAI if RAG fails
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: "You are a helpful FedEx Developer API assistant. Be concise and professional." },
-              { role: "user", content: message }
-            ],
-            temperature: 0.7,
+          log(`[rag] Success — answer length: ${answer.length}, sources: ${sources.length}`, 'chat');
+        } catch (ragError: any) {
+          const ragReason = ragError?.code || ragError?.message || 'unknown';
+          log(`[rag] FAILED — reason: ${ragReason}`, 'chat');
+          console.error('RAG backend error details:', {
+            code: ragError?.code,
+            message: ragError?.message,
+            status: ragError?.response?.status,
+            data: ragError?.response?.data,
           });
-          answer = completion.choices[0]?.message?.content || "I apologize, but I encountered an error processing your request.";
-          modelUsed = 'openai-fallback';
+          throw new Error(`RAG backend unavailable (${ragReason}). Make sure the Python backend and Ollama are running.`);
         }
       } else {
-        // Use OpenAI for general questions
+        log(`[openai] Sending to OpenAI GPT-4o-mini`, 'chat');
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
@@ -82,6 +87,7 @@ export async function registerRoutes(
         });
         answer = completion.choices[0]?.message?.content || "I apologize, but I couldn't generate a response.";
         modelUsed = 'openai';
+        log(`[openai] Success — answer length: ${answer.length}`, 'chat');
       }
 
       // Store conversation
@@ -120,7 +126,11 @@ export async function registerRoutes(
       let errorType = "unknown";
       let statusCode = 500;
 
-      if (error?.code === 'insufficient_quota' || error?.error?.code === 'insufficient_quota') {
+      if (error?.message?.includes('RAG backend unavailable')) {
+        errorMessage = error.message;
+        errorType = "rag_unavailable";
+        statusCode = 503;
+      } else if (error?.code === 'insufficient_quota' || error?.error?.code === 'insufficient_quota') {
         errorMessage = "The OpenAI API quota has been exceeded. Try asking a FedEx-specific question instead, which uses the local AI.";
         errorType = "quota_exceeded";
         statusCode = 503;
