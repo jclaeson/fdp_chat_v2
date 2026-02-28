@@ -213,11 +213,11 @@ def load_docs_one_level(seeds: list[str]):
                 time.sleep(0.3)
         return docs
 
-def clean_and_chunk(docs, chunk_size=1200, chunk_overlap=200):
+def clean_and_chunk(docs, chunk_size=2500, chunk_overlap=400):
         splitter = RecursiveCharacterTextSplitter(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
-                separators=["\n\n", "\n", " ", ""],
+                separators=["---", "\n\n", "\n", " ", ""],
         )
         return splitter.split_documents(docs)
 

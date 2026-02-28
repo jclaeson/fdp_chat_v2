@@ -1,5 +1,6 @@
 # app.py
 import os
+import re
 import logging
 import requests
 from typing import List, Dict, Any, Optional
@@ -17,7 +18,7 @@ PERSIST_DIR = os.getenv("PERSIST_DIR", "./vector_store/chroma_fedex")
 EMBED_MODEL = "nomic-embed-text"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 RELEVANCE_THRESHOLD = 0.3
-CONTEXT_BUDGET = 6000
+CONTEXT_BUDGET = 10000
 
 embeddings = OllamaEmbeddings(model=EMBED_MODEL)
 db = Chroma(persist_directory=PERSIST_DIR, embedding_function=embeddings)
@@ -40,20 +41,65 @@ class RetrieveRequest(BaseModel):
         message: str
         k: int = 8
 
+QUERY_EXPANSION_MAP = {
+        r"\bship\b": "Ship API createShipment shipment",
+        r"\bshipping\b": "Ship API createShipment shipment",
+        r"\bground\b": "FEDEX_GROUND serviceType ground shipping",
+        r"\bexpress\b": "FEDEX_EXPRESS serviceType express",
+        r"\bovernight\b": "STANDARD_OVERNIGHT PRIORITY_OVERNIGHT serviceType",
+        r"\b2\s*day\b": "FEDEX_2_DAY serviceType",
+        r"\btrack\b": "Track API tracking trackByTrackingNumber",
+        r"\btracking\b": "Track API tracking trackByTrackingNumber",
+        r"\brate\b": "Rate API getRates rateRequest",
+        r"\brates\b": "Rate API getRates rateRequest",
+        r"\bquote\b": "Rate API getRates rateRequest quote",
+        r"\blabel\b": "Ship API label createShipment labelSpecification",
+        r"\bauth\b": "OAuth authentication client_credentials token",
+        r"\boauth\b": "OAuth authentication client_credentials token",
+        r"\baddress\b": "Address Validation API validateAddress",
+        r"\bvalidat\w*\b": "Address Validation API validateAddress",
+        r"\bwebhook\b": "Shipment Visibility Webhook notification",
+        r"\bpickup\b": "pickup schedulePickup CONTACT_FEDEX_TO_SCHEDULE",
+        r"\bweight\b": "weight units LB KG packageWeight",
+        r"\bdimension\b": "dimensions length width height IN CM",
+        r"\bpackage\b": "packageLineItems packageCount YOUR_PACKAGING",
+        r"\brecipient\b": "recipient recipientAddress contact",
+        r"\bshipper\b": "shipper shipperAddress contact accountNumber",
+        r"\baccount\b": "accountNumber shippingChargesPayment",
+        r"\brequired\b": "required mandatory fields parameters",
+        r"\bparameter\b": "parameters request body fields schema",
+        r"\bendpoint\b": "endpoint URL POST request path",
+}
+
+def expand_query(question: str) -> str:
+        lower_q = question.lower()
+        expansions = []
+        for pattern, terms in QUERY_EXPANSION_MAP.items():
+                if re.search(pattern, lower_q):
+                        expansions.append(terms)
+        if expansions:
+                expanded = question + " " + " ".join(expansions)
+                logger.info(f"[expand] original: {question}")
+                logger.info(f"[expand] expanded: {expanded[:200]}...")
+                return expanded
+        return question
+
 SYSTEM_PROMPT = (
-        "You are a FedEx Developer API assistant. Your ONLY job is to answer questions "
+        "You are a FedEx Developer API assistant. Your job is to answer questions "
         "using the documentation context provided below.\n\n"
-        "STRICT RULES:\n"
-        "1. ONLY use information from the provided context. Do NOT invent or fabricate "
-        "any API endpoints, URLs, method names, parameter names, or code examples.\n"
-        "2. If the context does not contain enough information to fully answer the question, "
-        "say: \"Based on the available documentation, I don't have complete information about this. "
-        "Please check the FedEx Developer Portal for the most up-to-date details.\"\n"
-        "3. ONLY cite source URLs that appear in the [Source] tags below. Never invent URLs.\n"
-        "4. When listing parameters or fields, only list ones explicitly mentioned in the context.\n"
-        "5. Do NOT generate sample code unless the context contains code examples. "
-        "Instead, describe the API structure and point to the documentation.\n"
-        "6. Be precise and concise. If you're unsure about any detail, say so.\n\n"
+        "RULES:\n"
+        "1. Use ONLY information from the provided context. Do NOT invent or fabricate "
+        "any API endpoints, URLs, method names, or parameter names.\n"
+        "2. If the context contains API schemas, endpoint URLs, request/response structures, "
+        "or field definitions, you SHOULD write example code that uses the EXACT field names, "
+        "endpoint paths, and values from the context. Never invent field names.\n"
+        "3. When writing code examples, use the exact JSON structure and field names from the "
+        "documentation context. Include the actual API endpoint URL and HTTP method if available.\n"
+        "4. ONLY cite source URLs that appear in the [Source] tags below. Never invent URLs.\n"
+        "5. When listing parameters or fields, only list ones explicitly mentioned in the context.\n"
+        "6. If the context does not contain enough information to answer, say so clearly and "
+        "suggest checking the FedEx Developer Portal.\n"
+        "7. Be thorough — include all relevant fields, parameters, and details from the context.\n\n"
 )
 
 def build_prompt(question: str, contexts: list, page_url: Optional[str], page_text: Optional[str]) -> str:
@@ -87,13 +133,14 @@ def build_prompt(question: str, contexts: list, page_url: Optional[str], page_te
         )
 
 def retrieve(question: str, page_url: Optional[str], k: int = 8) -> list:
-        logger.info(f"[retrieve] query: {question}")
+        expanded = expand_query(question)
+        logger.info(f"[retrieve] query: {expanded[:150]}")
 
         try:
-                scored_hits = db.similarity_search_with_relevance_scores(question, k=k)
+                scored_hits = db.similarity_search_with_relevance_scores(expanded, k=k)
         except Exception as e:
                 logger.warning(f"[retrieve] scored search failed ({e}), falling back to basic search")
-                hits = db.similarity_search(question, k=k)
+                hits = db.similarity_search(expanded, k=k)
                 for h in hits:
                         logger.info(f"  chunk: score=N/A src={h.metadata.get('source', '?')[:80]} text={h.page_content[:80]}...")
                 return hits
@@ -113,7 +160,7 @@ def retrieve(question: str, page_url: Optional[str], k: int = 8) -> list:
                 filtered = [doc for doc, _ in scored_hits[:3]]
 
         try:
-                mmr_hits = db.max_marginal_relevance_search(question, k=min(k, len(filtered)), fetch_k=k * 2)
+                mmr_hits = db.max_marginal_relevance_search(expanded, k=min(k, len(filtered)), fetch_k=k * 2)
                 logger.info(f"[retrieve] MMR returned {len(mmr_hits)} diverse results")
 
                 mmr_sources = {h.page_content[:100] for h in mmr_hits}
@@ -158,9 +205,10 @@ def chat(req: ChatRequest):
 
 @app.post("/debug/retrieve")
 def debug_retrieve(req: RetrieveRequest):
-        logger.info(f"[debug] query: {req.message}")
+        expanded = expand_query(req.message)
+        logger.info(f"[debug] query: {expanded[:150]}")
         try:
-                scored_hits = db.similarity_search_with_relevance_scores(req.message, k=req.k)
+                scored_hits = db.similarity_search_with_relevance_scores(expanded, k=req.k)
                 results = []
                 for doc, score in scored_hits:
                         results.append({
@@ -171,12 +219,13 @@ def debug_retrieve(req: RetrieveRequest):
                         })
                 return {
                         "query": req.message,
+                        "expanded_query": expanded,
                         "total_results": len(results),
                         "threshold": RELEVANCE_THRESHOLD,
                         "results": results,
                 }
         except Exception as e:
-                hits = db.similarity_search(req.message, k=req.k)
+                hits = db.similarity_search(expanded, k=req.k)
                 results = []
                 for doc in hits:
                         results.append({
@@ -187,6 +236,7 @@ def debug_retrieve(req: RetrieveRequest):
                         })
                 return {
                         "query": req.message,
+                        "expanded_query": expanded,
                         "total_results": len(results),
                         "note": f"Scored search unavailable ({e}), used basic search",
                         "results": results,
